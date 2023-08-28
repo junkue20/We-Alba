@@ -48,7 +48,7 @@
 <br/>
 
 로딩 화면은 로딩바가 가로로 늘어나는 애니메이션을 무한히 반복하도록 했고,
-로딩이 완료되면 `window.onload` 이벤트 핸들러를 통해 해당 화면이 사라지도록 했습니다.
+로딩이 완료되면 `addEventListener`를 통해 해당 화면이 사라지도록 했습니다.
 
 ```html
 <!-- 로딩 화면 추가 -->
@@ -57,8 +57,12 @@
     </div>
 ```
 ```css
+:root {
+  --display: flex;
+}
+
 .loading-screen {
-  display: flex;
+  display: var(--display);
   position: fixed;
   justify-content: center;
   align-items: center;
@@ -75,7 +79,7 @@
   width: 441px;
   height: 5px;
   background-color: #ffffff;
-  animation: loadingBar 2.5s infinite; /* 애니메이션은 로딩 완료전까지 무한으로 반복 */
+  animation: loadingBar 2.5s infinite; /* 로딩 바 애니메이션 설정 */
   text-align: center;
 }
 
@@ -89,17 +93,22 @@
 }
 ```
 ```js
-window.onload = function () {
-    const loadingScreen = document.querySelector(".loading-screen");
-    
-    // 로딩이 완료되면 로딩 화면을 천천히 사라지게 함
-    setTimeout(() => {
-      loadingScreen.style.opacity = "0";
-      setTimeout(() => {
-        loadingScreen.style.display = "none";
-      }, 500); // 로딩 화면이 완전히 사라지도록 딜레이 설정
-    }, 1000); // 로딩 화면이 보이는 시간
-  };
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(() => {
+    loadingScreen.style.opacity = '0';
+  }, 1000);
+
+  const loadingScreen = document.querySelector('.loading-screen');
+
+  // 투명도 변화 이벤트 감지
+  loadingScreen.addEventListener(
+    'transitionend',
+    (handleTransitionEnd = () => {
+      document.documentElement.style.setProperty("--display", "none");
+    })
+  );
+});
+
 ```
 </details>
 
@@ -146,19 +155,18 @@ loginButton.addEventListener("click", () => {
   } else if (password === "") {
     // 비밀번호 오류 메세지 1 (입력된 값이 없을때)
     errorMessage.textContent = "비밀번호를 입력해주세요!";
-    errorMessage.style.display = "block"; // 기존 css 스타일은 none.
     setTimeout(()=>{
       errorMessage.textContent = "";
     }, 3000)
   } else {
     // 비밀번호 오류 메세지 2 (비밀번호가 틀렸을때)
     errorMessage.textContent = "비밀번호를 다시 확인해주세요!";
-    errorMessage.style.display = "block";
     setTimeout(()=>{
       errorMessage.textContent = "";
     }, 3000)
   }
 });
+
 ```
 </details>
 
@@ -180,27 +188,29 @@ loginButton.addEventListener("click", () => {
 ```html
 <div class="image-upload">
               <img id="imagePreview" src="../assets/pictures/no-image.png" alt="아르바이트생 사진" />
-              <input type="file" name="image" id="photoInput" accept="image/*" onchange="handleImageChange(event)" />
+              <input type="file" name="image" id="photoInput" accept="image/*" />
             </div>
 ```
 ```js
-// 이미지 등록 시 미리보기 기능
-function handleImageChange(event) {
-  const imagePreview = document.getElementById("imagePreview");
-  const selectedImage = event.target.files[0];
+const photoInput = document.getElementById('photoInput');
+photoInput.addEventListener('change', (event) => handleImageChange(event));
 
+// 이미지 등록 시 미리보기 기능
+const handleImageChange = (event) => {
+  const imagePreview = document.getElementById('imagePreview');
+  const selectedImage = event.target.files[0];
+  let imageURL = '../assets/pictures/no-image.png';
+  
   if (selectedImage) {
     // 이미지 등록 시
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      imagePreview.setAttribute("src", e.target.result); // 등록한 파일로 미리보기 이미지 src 변경
+    imageURL = URL.createObjectURL(selectedImage);
+    imagePreview.src = imageURL; // 등록한 파일로 미리보기 주소변경
+    imagePreview.onload = () => {
+      URL.revokeObjectURL(imageURL); // 이미지가 로드되면 URL 해제
     };
-    reader.readAsDataURL(selectedImage); // 데이터 URL 활용하여 이미지 미리보기 표시
-  } else {
-    // 이미지 등록이 안된 상태는 기본 이미지 출력
-    imagePreview.setAttribute("src", "../assets/pictures/no-image.png");
-  }
-}
+  } 
+};
+
 ```
 
 </details>
@@ -238,34 +248,43 @@ $(document).on('click', '.edit-button', function () {
   const phoneNum = $parentRow.find('.alba-phone p').text(); // <--- 이부분. 사실 DB에 저장된 id 값으로 받아오는게 원래 올바른 방법이긴 하다.. ㅎㅎ 
 
   // 데이터베이스에서 해당하는 데이터 가져오기
+  // '조회하기' 버튼 클릭 이벤트 리스너 등록
+$(document).on('click', '.edit-button', function () {
+  // 클릭한 버튼의 부모 요소에서 데이터 가져오기
+  const $parentRow = $(this).closest('tr');
+  const phoneNum = $parentRow.find('.alba-phone p').text();
+
+  // 데이터베이스에서 해당하는 데이터 가져오기
   db.collection('albainfo')
-    .where('연락처', '==', phoneNum) // <--- DB 에 일치하는 전화번호가 있으면 들고오도록 함!
+    .where('연락처', '==', phoneNum)
     .get()
     .then((querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const data = doc.data();
-        // 모달창에 데이터 채우기
-        $('.modal-left-container img').attr('src', data.이미지);
-        $('.modal-right-container p:eq(0)').text(`${data.이름}`);
-        $('.modal-right-container p:eq(1)').text(`${data.직급}`);
-        $('.modal-right-container p:eq(2)').text(`${data.연락처}`);
-        $('.modal-right-container p:eq(3)').text(`${data.근무시간}`);
-        // 모달창 띄우기
-        $('.modal-container').fadeIn();
-
-        // 모달창 버튼 클릭 이벤트 리스너 등록
-        $('.update-button').on('click', function () {
-          // 정보수정 이동
-          const id = doc.id;
-          window.location.href = `albaUpdate.html?idvalue=${id}`; // <-- 그런데 또 수정화면으로 보낼땐 url 파라미터에 id값을 보냈다..
-          $('.modal-container').fadeOut();
-        });
-        $('.close-button').on('click', function () {
-          // 모달창 닫기
-          $('.modal-container').fadeOut();
-        });
+      if (querySnapshot.empty) {
+        // 데이터가 없을경우 리턴.
+        return;
       }
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      // 모달창에 데이터 채우기
+      document.querySelector('.modal-left-container img').src = data.이미지;
+      document.querySelectorAll('.modal-right-container p')[0].textContent = data.이름;
+      document.querySelectorAll('.modal-right-container p')[1].textContent = data.직급;
+      document.querySelectorAll('.modal-right-container p')[2].textContent = data.연락처;
+      document.querySelectorAll('.modal-right-container p')[3].textContent = data.근무시간;
+      // 모달창 띄우기
+      $('.modal-container').fadeIn();
+
+      // 모달창 버튼 클릭 이벤트 리스너 등록
+      $('.update-button').on('click', function () {
+        // 정보수정 이동
+        const id = doc.id;
+        window.location.href = `albaUpdate.html?idvalue=${id}`;
+        $('.modal-container').fadeOut();입
+      });
+      $('.close-button').on('click', function () {
+        // 모달창 닫기
+        $('.modal-container').fadeOut();
+      });
     })
     .catch((error) => {
       console.error('Error getting document:', error);
@@ -289,13 +308,18 @@ $(document).on('click', '.edit-button', function () {
 'Restful.api에서 사용하는 방식처럼 url 끝에 조회하고자 하는 데이터의 id값을 넣어서 보내면 되겠다' 라는 아이디어로 시작하여
  URL 끝에 id값을 포함하여 수정하고자 하는 데이터를 불러올 수 있도록 했습니다. 
 
+추가적으로 반복하여 db, storage를 불러오는 코드는 `firebaseSDK.js`파일에 저장하여 import해오는 방식으로 코드의 반복을 최소한으로 했습니다.
 ```js
+// Firebase SDK
+import { initializeFirebase } from './firebaseSDK.js';
+const { db, storage } = initializeFirebase();
+
 $(document).ready(function () {
   const urlParams = new URLSearchParams(window.location.search);
-  const idValue = urlParams.get('idvalue');  // url에 같이 전송된 id값을 받아옴
+  const idValue = urlParams.get('idvalue');
 
   if (idValue) {
-    const docRef = db.collection('albainfo').doc(idValue);  // 해당 id 값의 데이터를 받아옴.
+    const docRef = db.collection('albainfo').doc(idValue);
 
     docRef
       .get()
@@ -315,7 +339,7 @@ $(document).ready(function () {
       .catch((error) => {
         console.log('Error getting document:', error);
       });
-      
+
     // 수정 버튼 클릭 시 데이터 수정
     $('#sendButton').click(function () {
       const updatedData = {
@@ -328,6 +352,20 @@ $(document).ready(function () {
 
       // 이미지 업로드 처리
       const selectedImage = $('#photoInput')[0].files[0];
+
+      // 데이터 업로드 함수
+      const dataUpload = () => {
+        docRef
+          .update(updatedData)
+          .then(() => {
+            console.log('문서 업데이트 완료');
+            window.location.href = '/albaSelect.html';
+          })
+          .catch((error) => {
+            console.error('오류 발생:', error);
+          });
+      };
+
       if (selectedImage) {
         const storageRef = storage.ref(`images/${selectedImage.name}`);
         storageRef
@@ -338,36 +376,16 @@ $(document).ready(function () {
           .then((downloadURL) => {
             // 업로드된 이미지 URL을 데이터와 함께 업데이트
             updatedData.이미지 = downloadURL;
-            // 데이터 업데이트
-            docRef
-              .update(updatedData)
-              .then(() => {
-                console.log('문서 업데이트 완료');
-                window.location.href = '/albaSelect.html';
-              })
-              .catch((error) => {
-                console.error('오류 발생:', error);
-              });
+            dataUpload();
           })
           .catch((error) => {
             console.error('이미지 업로드 오류:', error);
           });
       } else {
         // 이미지가 선택되지 않은 경우 데이터만 업데이트
-        docRef
-          .update(updatedData)
-          .then(() => {
-            window.location.href = '/albaSelect.html';
-            console.log('문서 업데이트 완료');
-          })
-          .catch((error) => {
-            alert('등록실패!');
-            console.log(err);
-          });
+        dataUpload();
       }
     });
-  }
-});
 ```
 
 </details>
@@ -383,9 +401,7 @@ $(document).ready(function () {
 <summary><h3>[ 일괄삭제 ] 관련 JS코드</h3></summary>
 <br/>
 
-해당 부분은 '선택된 데이터가 없으면 모달창을 띄울까, 버튼을 disabled 상태로 만들까' 라며 고민하다가 코드가 많이 꼬인 상태입니다.. 지난 16일에 멘토님께 질문 후 수정중에 있으며, 추후 적용하여 재 배포할 예정입니다.
-
-PR에 올리기 부끄러운 내용이긴 하지만, '혹시라도 다른 분들께서 좀 더 좋은 아이디어를 공유해주실 수 있지 않을까' 라는 기대감에 부끄러움 무릅쓰고 첨부하도록 하겠습니다..!
+해당 부분에서는 삭제하고자 하는 알바생들의 정보를 체크박스를 통해 다중선택하여 지울 수 있도록 구현했습니다.
 
 ```js
 // 알바생 데이터 삭제
@@ -441,17 +457,11 @@ $(document).ready(function () {
               await storageRef.delete();
             }
           });
-
           // 삭제 Promise 모두 완료될 때까지 기다림
           await Promise.all(deletePromises);
           window.location.href = 'albaSelect.html'; // 새로고침 기능
         });
-<<<<<<< HEAD
       } else {
-=======
-      } else if (selectedIds === undefined) {
->>>>>>> d86b49ada2b370692f5fc6ef01797ac32121757d
-        console.log(123);
         $('.no-selection-modal-container').fadeIn();
         return;
       }
