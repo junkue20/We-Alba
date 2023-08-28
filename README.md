@@ -446,7 +446,11 @@ $(document).ready(function () {
           await Promise.all(deletePromises);
           window.location.href = 'albaSelect.html'; // 새로고침 기능
         });
+<<<<<<< HEAD
       } else {
+=======
+      } else if (selectedIds === undefined) {
+>>>>>>> d86b49ada2b370692f5fc6ef01797ac32121757d
         console.log(123);
         $('.no-selection-modal-container').fadeIn();
         return;
